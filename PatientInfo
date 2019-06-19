@@ -1,0 +1,173 @@
+public bool writeToDB() {
+            string l_sql = String.Format("SELECT COUNT(*) FROM PatientInfo WHERE 1=1 AND patuuid = '{0}' ; ", patuuid);
+            long cnt = DBHelper.intForSQL(l_sql);
+            if (cnt == 1)
+            {
+                return updateRec();
+            }
+            else
+            {
+                return insertRec();
+            } 
+        
+        }
+
+        private bool insertRec()
+        {
+            string l_sql = "INSERT INTO PatientInfo(patuuid, patientid, patientno, firstname, lastname, gender, birthday, telno) VALUES(TRIM(@patuuid),TRIM(@patientid),TRIM(@patientno),TRIM(@firstname),TRIM(@lastname),TRIM(@gender),TRIM(@birthday),TRIM(@telno));";
+            SQLiteCommand sqlCommand = DBHelper.SQLiteCmd(l_sql);
+            bool result = false;
+            try
+            {
+                sqlCommand.Parameters.Add(new SQLiteParameter("@patuuid", patuuid));
+                sqlCommand.Parameters.Add(new SQLiteParameter("@patientid", patientid));
+                sqlCommand.Parameters.Add(new SQLiteParameter("@patientno",patientno));
+             
+                sqlCommand.ExecuteNonQuery();
+                result = true;
+                //Console.WriteLine("Command String : {0}", sqlCommand.CommandText);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("PatientInfo insertRec Exception Type: {0}",  ex.GetType());
+                Console.WriteLine(" PatientInfo insertRec Exception Message: {0}", ex.Message);
+                result = false;
+            }
+            finally
+            {
+            }
+
+            return result;
+        
+        }
+
+        private bool updateRec()
+        {
+            string l_sql = "UPDATE PatientInfo SET patientid = TRIM(@patientid), patientno = TRIM(@patientno), firstname = TRIM(@firstname), lastname = TRIM(@lastname), gender = TRIM(@gender), birthday = TRIM(@birthday), telno = TRIM(@telno) WHERE patuuid = @patuuid ; ";
+            SQLiteCommand sqlCommand = DBHelper.SQLiteCmd(l_sql);
+            bool result = false;
+            try
+            {
+                sqlCommand.Parameters.Add(new SQLiteParameter("@patuuid", patuuid));
+                sqlCommand.Parameters.Add(new SQLiteParameter("@patientid", patientid));
+              
+                sqlCommand.ExecuteNonQuery();
+                result = true;
+                //Console.WriteLine("Command String : {0}", sqlCommand.CommandText);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("PatientInfo updateRec Exception Type: {0}", ex.GetType());
+                Console.WriteLine(" PatientInfo updateRec Exception Message: {0}", ex.Message);
+                result = false;
+            }
+            finally
+            {
+            }
+
+            return result;
+        
+        }
+
+        public bool deleteRec() {
+            string l_sql = "DELETE FROM PatientInfo WHERE patuuid = @patuuid ; ";
+            SQLiteCommand sqlCommand = DBHelper.SQLiteCmd(l_sql);
+            bool result = false;
+            try
+            {
+                sqlCommand.Parameters.Add(new SQLiteParameter("@patuuid", patuuid));
+                sqlCommand.ExecuteNonQuery();
+                result = true;
+                //Console.WriteLine("Command String : {0}", sqlCommand.CommandText);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("PatientInfo deleteRec Exception Type: {0}", ex.GetType());
+                Console.WriteLine(" PatientInfo deleteRec Exception Message: {0}", ex.Message);
+                result = false;
+            }
+            finally
+            {
+            }
+
+            return result;
+        
+        }
+
+        public static bool patientNoIsDuplicate(string inPatientNo, string inPatUUID) {
+            string l_sql = "SELECT patientno FROM PatientInfo WHERE UPPER(patuuid) <> @patuuid AND UPPER(patientno) = @patientno ;";
+            SQLiteCommand sqlCommand = DBHelper.SQLiteCmd(l_sql);
+            bool result = false;
+            try
+            {
+                sqlCommand.Parameters.Add(new SQLiteParameter("@patuuid", inPatUUID));
+                sqlCommand.Parameters.Add(new SQLiteParameter("@patientno", inPatientNo));
+                SQLiteDataReader l_dr = sqlCommand.ExecuteReader();
+                //Console.WriteLine("Command String : {0},{1},{2}", sqlCommand.CommandText, inPatUUID, inPatientNo);
+                while(l_dr.Read()){
+                    result = true;
+                    break;
+                }
+                l_dr.Close();
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("patientNoIsDuplicate Exception Type: {0}", ex.GetType());
+                Console.WriteLine(" patientNoIsDuplicate Exception Message: {0}", ex.Message);
+                result = false;
+            }
+            finally
+            {
+            }
+
+            return result;
+
+
+        }
+        public void bindValuefromObj(DBPatientInfo fromObj){
+            patuuid = fromObj.patuuid;
+            patientid = fromObj.patientid;
+            patientno = fromObj.patientno;
+           
+            birthdayDBString = fromObj.birthdayDBString;
+           
+        }
+
+        public static void fetchPatientsWithOriginalArray(List<DBPatientInfo> fetchArray, string inKeyword, Action<bool, List<DBPatientInfo>> completion)
+        {
+            if (fetchArray == null )
+            {
+                Console.WriteLine("PatientsArray NOT initialize.");
+                completion(false, fetchArray);
+                return;
+            }
+            fetchArray.Clear();
+            char[] seperatechars = {' ', ',','\'','/' };
+            string whereCase = "";
+            string[] keywords = inKeyword.Split(seperatechars);
+            foreach (string keyword in keywords) {
+                string tmpStr = String.Format(" AND (patientid LIKE '%{0}%' OR patientno LIKE '%{0}%' OR firstname LIKE '%{0}%' OR lastname LIKE '%{0}%' OR birthday LIKE '%{0}%' OR telno LIKE '%{0}%') ", keyword);
+                whereCase = String.Format("{0} {1}", whereCase, tmpStr);
+            }
+
+            string l_sql = String.Format("SELECT patuuid FROM PatientInfo WHERE 1=1 {0} ORDER BY firstname LIMIT 50 ;",whereCase) ;
+            //Console.WriteLine(l_sql);
+            SQLiteCommand sqlComm = DBHelper.SQLiteCmd(l_sql);
+            try
+            {
+                SQLiteDataReader l_dr = sqlComm.ExecuteReader();
+                while (l_dr.Read()) {
+                    string _patuuid = l_dr["patuuid"].ToString();
+                    fetchArray.Add(new DBPatientInfo(_patuuid));
+                }
+                l_dr.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("fetchPatientsWithOriginalArray() Exception: {0} ", ex.Message);
+            }
+            finally { 
+            }
+            completion(true, fetchArray);
+        }
